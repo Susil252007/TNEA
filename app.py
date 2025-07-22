@@ -238,34 +238,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-# --- AI Assistant (Free via Hugging Face) ---
-st.markdown("---")
-st.subheader("🤖 Ask AI Assistant (Free)")
 
-user_prompt = st.text_area("🗨️ Type your question here:", height=100)
-
-if st.button("Ask AI"):
-    if user_prompt.strip() == "":
-        st.warning("Please enter a question.")
-    else:
-        with st.spinner("AI is thinking..."):
-            try:
-                import requests
-                hf_url = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-                headers = {
-                    "Authorization": f"Bearer {st.secrets['huggingface']['token']}"
-                }
-
-                response = requests.post(hf_url, headers=headers, json={"inputs": user_prompt})
-                result = response.json()
-
-                st.write("DEBUG:", result)  # Optional: To check the result
-
-                if isinstance(result, list) and "generated_text" in result[0]:
-                    ai_reply = result[0]["generated_text"]
-                    st.success("💡 AI Response:")
-                    st.write(ai_reply)
-                else:
-                    st.warning("⚠️ Unable to generate a valid response. Try again.")
-            except Exception as e:
-                st.error(f"❌ Error: {e}")
