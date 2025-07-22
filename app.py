@@ -156,12 +156,14 @@ if compare_colleges:
 
     if comp_dept != "All":
         compare_df = compare_df[compare_df['Br'] == comp_dept]
-
-    color_palette = ['#f7c6c7', '#c6e2ff', '#d5f5e3', '#fff5ba', '#e0ccff']
+ color_palette = ['#f7c6c7', '#c6e2ff', '#d5f5e3', '#fff5ba', '#e0ccff']
     college_color_map = {cl: color_palette[i] for i, cl in enumerate(compare_cls)}
 
+    # ✅ UPDATED FUNCTION to set black font color
     def highlight_college(row):
-        return ['background-color: {}'.format(college_color_map.get(str(row['CL']), '#ffffff'))] * len(row)
+        cl = str(row['CL'])
+        bg_color = college_color_map.get(cl, '#ffffff')
+        return [f'background-color: {bg_color}; color: black;' for _ in row]
 
     compare_cols = ['CL', 'College', 'Br', 'zone']
     if comp_comm != "All":
