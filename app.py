@@ -251,9 +251,9 @@ if st.button("Ask AI"):
         with st.spinner("AI is thinking..."):
             try:
                 hf_url = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-                headers = {
-                    "Authorization": "Bearer hf_...irPc"  # Replace with your full token
-                }
+              headers = {
+    "Authorization": f"Bearer {st.secrets['huggingface']['token']}"
+}
 
                 payload = {"inputs": user_prompt}
                 response = requests.post(hf_url, headers=headers, json=payload)
