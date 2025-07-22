@@ -7,6 +7,15 @@ import uuid
 import time
 from datetime import timedelta
 
+# --- ✅ ADD THIS: Force black font in dataframes ---
+st.markdown("""
+    <style>
+    .stDataFrame div {
+        color: black !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- FILE PATHS ---
 base_path = "./"
 config_path = base_path + "config.yaml"
@@ -81,7 +90,6 @@ if st.session_state.logged_in:
     else:
         update_session(st.session_state.mobile, st.session_state.device_id)
 
-    # Show countdown in sidebar
     with st.sidebar:
         readable = str(timedelta(seconds=remaining_time))
         st.info(f"⏳ Session expires in {readable}")
@@ -156,10 +164,10 @@ if compare_colleges:
 
     if comp_dept != "All":
         compare_df = compare_df[compare_df['Br'] == comp_dept]
- color_palette = ['#f7c6c7', '#c6e2ff', '#d5f5e3', '#fff5ba', '#e0ccff']
+
+    color_palette = ['#f7c6c7', '#c6e2ff', '#d5f5e3', '#fff5ba', '#e0ccff']
     college_color_map = {cl: color_palette[i] for i, cl in enumerate(compare_cls)}
 
-    # ✅ UPDATED FUNCTION to set black font color
     def highlight_college(row):
         cl = str(row['CL'])
         bg_color = college_color_map.get(cl, '#ffffff')
@@ -240,4 +248,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
