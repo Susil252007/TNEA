@@ -250,23 +250,22 @@ if st.button("Ask AI"):
     else:
         with st.spinner("AI is thinking..."):
             try:
+                import requests
                 hf_url = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-              headers = {
-    "Authorization": f"Bearer {st.secrets['huggingface']['token']}"
-}
+                headers = {
+                    "Authorization": f"Bearer {st.secrets['huggingface']['token']}"
+                }
 
-                payload = {"inputs": user_prompt}
-                response = requests.post(hf_url, headers=headers, json=payload)
+                response = requests.post(hf_url, headers=headers, json={"inputs": user_prompt})
                 result = response.json()
+
+                st.write("DEBUG:", result)  # Optional: To check the result
 
                 if isinstance(result, list) and "generated_text" in result[0]:
                     ai_reply = result[0]["generated_text"]
+                    st.success("💡 AI Response:")
+                    st.write(ai_reply)
                 else:
-                    ai_reply = "⚠️ Unable to generate a response. Please try again."
-
-                st.success("💡 AI Response:")
-                st.write(ai_reply)
-
+                    st.warning("⚠️ Unable to generate a valid response. Try again.")
             except Exception as e:
-                st.error(f"❌ Error connecting to Hugging Face API: {e}")
-
+                st.error(f"❌ Error: {e}")
