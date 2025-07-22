@@ -3,3 +3,4 @@ pandas
 pyyaml
 requests
 openpyxl
+huggingface_hub
