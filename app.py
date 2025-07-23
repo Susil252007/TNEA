@@ -1,5 +1,3 @@
-# ✅ Combined Streamlit App: Cutoff + Vacancy Viewer + College Comparison
-
 import streamlit as st
 import pandas as pd
 import yaml
@@ -123,22 +121,23 @@ vacancy_url = "https://docs.google.com/spreadsheets/d/17otzGFO0AhKzx5ChSUhW18Hnq
 df_cutoff = pd.read_excel(io.BytesIO(requests.get(cutoff_url).content))
 df_vacancy = pd.read_excel(io.BytesIO(requests.get(vacancy_url).content))
 
+# ✅ Clean column names to avoid KeyError issues
+df_cutoff.columns = df_cutoff.columns.str.strip()
+df_vacancy.columns = df_vacancy.columns.str.strip()
+
 # --- Cutoff page (with comparison) ---
 st.title("📊 TNEA 2025 Cutoff & Rank Finder")
 st.markdown(f"🆔 Accessed by: **{st.session_state.mobile}**")
 
-# --- College filter ---
 df_cutoff['College_Option'] = df_cutoff['CL'].astype(str) + " - " + df_cutoff['College']
 college_options = sorted(df_cutoff['College_Option'].dropna().unique())
 selected_college = st.selectbox("🏛️ Select College", ["All"] + college_options)
 
-# --- Basic filters ---
 st.subheader("🎯 Filter by Community, Department, Zone")
 community = st.selectbox("Community", ["All", "OC", "BC", "BCM", "MBC", "SC", "SCA", "ST"])
 department = st.selectbox("Department", ["All"] + sorted(df_cutoff['Br'].dropna().unique()))
 zone = st.selectbox("Zone", ["All"] + sorted(df_cutoff['zone'].dropna().unique()))
 
-# --- Compare colleges ---
 st.subheader("📌 Compare Up to 5 Colleges")
 compare_colleges = st.multiselect("Compare Colleges", college_options, max_selections=5)
 if compare_colleges:
@@ -192,11 +191,11 @@ else:
 st.markdown("---")
 st.title("📋 TNEA 2025 Vacancy Viewer")
 
+# ✅ Clean up column cases if needed and verify existence
+df_vacancy['College Combined'] = df_vacancy['College Code'].astype(str) + ' - ' + df_vacancy['College Name']
 branch_codes = sorted(df_vacancy['Branch Code'].dropna().unique())
 communities = sorted(df_vacancy['Community'].dropna().unique())
-df_vacancy['College Combined'] = df_vacancy['College Code'].astype(str) + ' - ' + df_vacancy['College Name']
 
-# --- Vacancy filters ---
 cat1, cat2 = st.columns(2)
 
 with cat1:
