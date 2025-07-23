@@ -6,9 +6,8 @@ import io
 import uuid
 import time
 from datetime import timedelta
-import plotly.express as px
 
-# --- Force black font in DataFrames ---
+# --- ✅ ADD THIS: Force black font in dataframes ---
 st.markdown("""
     <style>
     .stDataFrame div {
@@ -17,12 +16,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- File paths and session settings ---
-config_path = "config.yaml"
-device_session_path = "device_session.yaml"
+# --- FILE PATHS ---
+base_path = "./"
+config_path = base_path + "config.yaml"
+device_session_path = base_path + "device_session.yaml"
+
+# --- SESSION TIMEOUT SETTINGS ---
 SESSION_TIMEOUT = 180  # 3 minutes
 
-# --- Load credentials ---
+# --- CONFIG ---
 try:
     with open(config_path) as file:
         config = yaml.safe_load(file)
@@ -31,7 +33,7 @@ except Exception as e:
     st.error(f"❌ Failed to load config.yaml: {e}")
     st.stop()
 
-# --- Load or initialize session control ---
+# --- DEVICE SESSION CONTROL ---
 try:
     with open(device_session_path) as session_file:
         session_data = yaml.safe_load(session_file)
@@ -43,12 +45,14 @@ def save_session():
         yaml.dump(session_data, f)
 
 def is_session_expired(mobile, device_id):
-    user = session_data["active_users"].get(mobile)
+    user = session_data["active_users"].get(mobile, None)
     if not user:
         return True
-    if user.get("device_id") != device_id:
+    saved_device_id = user.get("device_id", "")
+    timestamp = user.get("timestamp", 0)
+    if saved_device_id != device_id:
         return True
-    return (time.time() - user.get("timestamp", 0)) > SESSION_TIMEOUT
+    return (time.time() - timestamp) > SESSION_TIMEOUT
 
 def update_session(mobile, device_id):
     session_data["active_users"][mobile] = {
@@ -65,7 +69,7 @@ def logout_user():
     st.session_state.mobile = ""
     st.session_state.device_id = str(uuid.uuid4())
 
-# --- Initialize session state ---
+# --- SESSION STATE ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "mobile" not in st.session_state:
@@ -73,19 +77,24 @@ if "mobile" not in st.session_state:
 if "device_id" not in st.session_state:
     st.session_state.device_id = str(uuid.uuid4())
 
-# --- Check session expiration ---
+# --- SESSION EXPIRY CHECK ---
 if st.session_state.logged_in:
+    user = session_data["active_users"].get(st.session_state.mobile, {})
+    last_time = user.get("timestamp", 0)
+    remaining_time = max(0, SESSION_TIMEOUT - int(time.time() - last_time))
+
     if is_session_expired(st.session_state.mobile, st.session_state.device_id):
         logout_user()
         st.warning("⚠️ Session expired. Please log in again.")
         st.stop()
     else:
         update_session(st.session_state.mobile, st.session_state.device_id)
-        with st.sidebar:
-            remaining = SESSION_TIMEOUT - int(time.time() - session_data["active_users"][st.session_state.mobile]["timestamp"])
-            st.info(f"⏳ Session expires in {str(timedelta(seconds=remaining))}")
 
-# --- Logout ---
+    with st.sidebar:
+        readable = str(timedelta(seconds=remaining_time))
+        st.info(f"⏳ Session expires in {readable}")
+
+# --- LOGOUT BUTTON ---
 if st.session_state.logged_in:
     with st.sidebar:
         st.success(f"👤 Logged in as: {st.session_state.mobile}")
@@ -93,7 +102,7 @@ if st.session_state.logged_in:
             logout_user()
             st.rerun()
 
-# --- Login form ---
+# --- LOGIN FORM ---
 if not st.session_state.logged_in:
     st.title("🔐 Login to Access TNEA App")
     mobile = st.text_input("📱 Mobile Number")
@@ -114,129 +123,128 @@ if not st.session_state.logged_in:
             st.error("❌ Invalid mobile number or password")
     st.stop()
 
-# --- Load both datasets ---
-cutoff_url = "https://docs.google.com/spreadsheets/d/1rASGgYC9RZA0vgmtuFYRG0QO3DOGH_jW/export?format=xlsx"
-vacancy_url = "https://docs.google.com/spreadsheets/d/17otzGFO0AhKzx5ChSUhW18HnqA8Ed2sY/export?format=xlsx"
+# --- LOAD EXCEL DATA ---
+excel_url = "https://docs.google.com/spreadsheets/d/1rASGgYC9RZA0vgmtuFYRG0QO3DOGH_jW/export?format=xlsx"
+response = requests.get(excel_url)
+df = pd.read_excel(io.BytesIO(response.content))
 
-df_cutoff = pd.read_excel(io.BytesIO(requests.get(cutoff_url).content))
-df_vacancy = pd.read_excel(io.BytesIO(requests.get(vacancy_url).content))
+for col in df.columns:
+    if col.endswith("_C") or col.endswith("_GR"):
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-# ✅ Clean column names to avoid KeyError issues
-df_cutoff.columns = df_cutoff.columns.str.strip()
-df_vacancy.columns = df_vacancy.columns.str.strip()
+# --- LOGO ---
+logo_url = "https://drive.google.com/thumbnail?id=1FPfkRH3BC1BeQRtQVpZDH3P3ilTSMYNA"
+st.image(logo_url, width=100)
 
-# --- Cutoff page (with comparison) ---
 st.title("📊 TNEA 2025 Cutoff & Rank Finder")
-st.markdown(f"🆔 Accessed by: **{st.session_state.mobile}**")
+st.markdown(f"🆔 **Accessed by: {st.session_state.mobile}**")
 
-df_cutoff['College_Option'] = df_cutoff['CL'].astype(str) + " - " + df_cutoff['College']
-college_options = sorted(df_cutoff['College_Option'].dropna().unique())
-selected_college = st.selectbox("🏛️ Select College", ["All"] + college_options)
+# --- COLLEGE FILTERS ---
+df['College_Option'] = df['CL'].astype(str) + " - " + df['College']
+college_options = sorted(df['College_Option'].unique().tolist())
+selected_college = st.selectbox("🏛️ Select College", options=["All"] + college_options)
 
 st.subheader("🎯 Filter by Community, Department, Zone")
-community = st.selectbox("Community", ["All", "OC", "BC", "BCM", "MBC", "SC", "SCA", "ST"])
-department = st.selectbox("Department", ["All"] + sorted(df_cutoff['Br'].dropna().unique()))
-zone = st.selectbox("Zone", ["All"] + sorted(df_cutoff['zone'].dropna().unique()))
+if selected_college == "All":
+    community = st.selectbox("Select Community", options=["All", "OC", "BC", "BCM", "MBC", "SC", "SCA", "ST"], key="main_community")
+    department = st.selectbox("Select Department (Br)", options=["All"] + sorted(df['Br'].dropna().unique().tolist()))
+    zone = st.selectbox("Select Zone", options=["All"] + sorted(df['zone'].dropna().unique().tolist()))
 
+# --- COMPARE COLLEGES ---
 st.subheader("📌 Compare Up to 5 Colleges")
-compare_colleges = st.multiselect("Compare Colleges", college_options, max_selections=5)
-if compare_colleges:
-    st.markdown("### 🎯 Inside Comparison")
-    comp_dept = st.selectbox("Department", ["All"] + sorted(df_cutoff['Br'].dropna().unique()), key="compare_department")
-    comp_comm = st.selectbox("Community", ["All", "OC", "BC", "BCM", "MBC", "SC", "SCA", "ST"], key="compare_community")
+compare_colleges = st.multiselect("Select colleges to compare", options=college_options, max_selections=5)
 
-    comp_cls = [c.split(" - ")[0] for c in compare_colleges]
-    compare_df = df_cutoff[df_cutoff['CL'].astype(str).isin(comp_cls)]
+if compare_colleges:
+    st.markdown("### 🎯 Filter Inside Compared Colleges")
+    comp_dept = st.selectbox("Department", options=["All"] + sorted(df['Br'].dropna().unique().tolist()), key="compare_department")
+    comp_comm = st.selectbox("Community", options=["All", "OC", "BC", "BCM", "MBC", "SC", "SCA", "ST"], key="compare_community")
+
+    compare_cls = [c.split(" - ")[0].strip() for c in compare_colleges]
+    compare_df = df[df['CL'].astype(str).isin(compare_cls)]
+
     if comp_dept != "All":
         compare_df = compare_df[compare_df['Br'] == comp_dept]
 
-    color_map = {cl: color for cl, color in zip(comp_cls, ["#f7c6c7", "#c6e2ff", "#d5f5e3", "#fff5ba", "#e0ccff"])}
+    color_palette = ['#f7c6c7', '#c6e2ff', '#d5f5e3', '#fff5ba', '#e0ccff']
+    college_color_map = {cl: color_palette[i] for i, cl in enumerate(compare_cls)}
 
-    def highlight_compare(row):
-        return [f"background-color: {color_map.get(str(row['CL']), '#ffffff')}; color: black;" for _ in row]
+    def highlight_college(row):
+        cl = str(row['CL'])
+        bg_color = college_color_map.get(cl, '#ffffff')
+        return [f'background-color: {bg_color}; color: black;' for _ in row]
 
-    cols = ['CL', 'College', 'Br', 'zone']
+    compare_cols = ['CL', 'College', 'Br', 'zone']
     if comp_comm != "All":
-        cols += [f"{comp_comm}_C", f"{comp_comm}_GR"]
+        compare_cols += [f"{comp_comm}_C", f"{comp_comm}_GR"]
     else:
-        cols += [col for col in df_cutoff.columns if col.endswith("_C") or col.endswith("_GR")]
+        compare_cols += [col for col in df.columns if col.endswith("_C") or col.endswith("_GR")]
 
+    format_dict = {col: '{:.2f}' if '_C' in col else '{:.0f}' for col in compare_cols if '_C' in col or '_GR' in col}
+
+    st.markdown("### 🟨 College Comparison Table")
     st.dataframe(
-        compare_df[cols].style.apply(highlight_compare, axis=1).hide(axis='index'), height=500
+        compare_df[compare_cols]
+        .style
+        .apply(highlight_college, axis=1)
+        .format(format_dict)
+        .hide(axis='index'),
+        height=450
     )
 
-# --- Main filter results ---
-filtered_df = df_cutoff.copy()
-if selected_college != "All":
-    cl_code = selected_college.split(" - ")[0]
-    filtered_df = filtered_df[filtered_df['CL'].astype(str) == cl_code]
-if department != "All":
-    filtered_df = filtered_df[filtered_df['Br'] == department]
-if zone != "All":
-    filtered_df = filtered_df[filtered_df['zone'] == zone]
+# --- MAIN FILTERED DATA ---
+show_data = False
+filtered_df = df.copy()
 
-cols_to_show = ['CL', 'College', 'Br', 'zone']
-if community != "All":
-    cols_to_show += [f"{community}_C", f"{community}_GR"]
+if selected_college != "All":
+    show_data = True
+    selected_cl = selected_college.split(" - ")[0].strip()
+    filtered_df = filtered_df[filtered_df['CL'].astype(str) == selected_cl]
 else:
-    cols_to_show += [col for col in df_cutoff.columns if col.endswith("_C") or col.endswith("_GR")]
+    if 'zone' in locals() and zone != "All":
+        filtered_df = filtered_df[filtered_df['zone'] == zone]
+        show_data = True
+    if 'department' in locals() and department != "All":
+        filtered_df = filtered_df[filtered_df['Br'] == department]
+        show_data = True
+
+if selected_college == "All" and 'community' in locals() and community != "All":
+    cols_to_show = ['CL', 'College', 'Br', f'{community}_C', f'{community}_GR', 'zone']
+else:
+    cols_to_show = ['CL', 'College', 'Br', 'zone'] + [col for col in df.columns if col.endswith("_C") or col.endswith("_GR")]
+
+format_dict = {
+    col: '{:.2f}' if '_C' in col else '{:.0f}'
+    for col in cols_to_show
+    if '_C' in col or '_GR' in col
+}
 
 st.markdown("### 🔎 Filtered Results")
-if not filtered_df.empty:
-    st.dataframe(filtered_df[cols_to_show].style.hide(axis='index'), height=500)
+
+if show_data:
+    st.dataframe(
+        filtered_df[cols_to_show]
+        .style
+        .format(format_dict)
+        .hide(axis='index'),
+        height=600
+    )
 else:
-    st.info("Please apply filters to view results.")
+    st.info("Please apply filters to see the results.")
 
-# --- Vacancy Viewer Section ---
+# --- FOOTER ---
 st.markdown("---")
-st.title("📋 TNEA 2025 Vacancy Viewer")
+st.markdown(
+    """
+    <div style='font-size:14px; line-height:1.6'>
+    <strong>Disclaimer</strong>: This is a privately developed, independent app created to assist students and parents with TNEA-related information.<br>
+    The data used in this app is collected from publicly available sources provided by TNEA.<br>
+    This app is not affiliated with or endorsed by TNEA or the Directorate of Technical Education (DoTE), Tamil Nadu.<br><br>
 
-# ✅ Clean up column cases if needed and verify existence
-df_vacancy['College Combined'] = df_vacancy['College Code'].astype(str) + ' - ' + df_vacancy['College Name']
-branch_codes = sorted(df_vacancy['Branch Code'].dropna().unique())
-communities = sorted(df_vacancy['Community'].dropna().unique())
-
-cat1, cat2 = st.columns(2)
-
-with cat1:
-    sel_branch = st.selectbox("🔍 Select Branch Code", branch_codes)
-    sel_comm = st.selectbox("🧑‍🤝‍🧑 Filter by Community", ["All"] + communities)
-
-    df1 = df_vacancy[df_vacancy['Branch Code'] == sel_branch]
-    if sel_comm != "All":
-        df1 = df1[df1['Community'] == sel_comm]
-
-    if not df1.empty:
-        total = df1['Seats'].sum()
-        st.plotly_chart(px.bar(df1.groupby('Community')["Seats"].sum().reset_index(),
-                               x="Community", y="Seats", color="Community",
-                               title=f"Community-wise Seat Distribution (Total: {total})"))
-        st.dataframe(df1, use_container_width=True)
-
-with cat2:
-    sel_college = st.selectbox("🏫 Select College (Code - Name)", sorted(df_vacancy['College Combined'].dropna().unique()))
-    sel_branch2 = st.selectbox("🔍 Filter by Branch Code (Optional)", ["All"] + branch_codes)
-
-    code, name = sel_college.split(" - ", 1)
-    df2 = df_vacancy[df_vacancy['College Code'].astype(str) == code.strip()]
-    if sel_branch2 != "All":
-        df2 = df2[df2['Branch Code'] == sel_branch2]
-
-    if not df2.empty:
-        total = df2['Seats'].sum()
-        st.plotly_chart(px.bar(df2.groupby('Community')["Seats"].sum().reset_index(),
-                               x="Community", y="Seats", color="Community",
-                               title=f"Community-wise Seat Distribution (Total: {total})"))
-        st.dataframe(df2, use_container_width=True)
-
-# --- Footer ---
-st.markdown("---")
-st.markdown("""
-<div style='font-size:14px; line-height:1.6'>
-<strong>Disclaimer</strong>: This is a privately developed app to help TNEA aspirants. Data is taken from publicly available resources.<br>
-<strong>Contact</strong>: +91-8248696926<br>
-<strong>Email</strong>: rajumurugannp@gmail.com<br>
-<strong>Developed by</strong>: Dr. Raju Murugan<br>
-&copy; 2025 <strong>TNEA Info App</strong>. All rights reserved.
-</div>
-""", unsafe_allow_html=True)
+    <strong>Contact</strong>: +91-8248696926<br>
+    <strong>Email</strong>: rajumurugannp@gmail.com<br>
+    <strong>Developed by</strong>: Dr. Raju Murugan<br>
+    &copy; 2025 <strong>TNEA Info App</strong>. All rights reserved.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
