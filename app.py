@@ -22,7 +22,7 @@ config_path = base_path + "config.yaml"
 device_session_path = base_path + "device_session.yaml"
 
 # --- SESSION TIMEOUT SETTINGS ---
-SESSION_TIMEOUT = 180  # 3 minutes
+SESSION_TIMEOUT = 10000  # 3 minutes
 
 # --- CONFIG ---
 try:
