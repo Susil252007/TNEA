@@ -1,6 +1,6 @@
 streamlit
 pandas
 pyyaml
-requests
 openpyxl
-huggingface_hub
+plotly
+requests
