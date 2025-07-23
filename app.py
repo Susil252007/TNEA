@@ -240,9 +240,9 @@ st.markdown(
     The data used in this app is collected from publicly available sources provided by TNEA.<br>
     This app is not affiliated with or endorsed by TNEA or the Directorate of Technical Education (DoTE), Tamil Nadu.<br><br>
 
-    <strong>Contact</strong>: +91-8248696926<br>
-    <strong>Email</strong>: rajumurugannp@gmail.com<br>
-    <strong>Developed by</strong>: Dr. Raju Murugan<br>
+    <strong>Contact</strong>: +91-9789937399<br>
+    <strong>Email</strong>: iamsusil@gmail.com<br>
+    <strong>Developed by</strong>: R.Susil Kumar <br>
     &copy; 2025 <strong>TNEA Info App</strong>. All rights reserved.
     </div>
     """,
